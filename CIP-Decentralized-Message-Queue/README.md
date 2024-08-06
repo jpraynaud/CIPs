@@ -1,35 +1,29 @@
 ---
-title: Cardano Decentralized Message Queue
-
----
-
----
 CIP: ?
 Title: Cardano Decentralized Message Queue
-Category: Cardano, Network, Mithril, Leios, Peras
+Category: ?
 Status: Proposed
 Authors:
-    - Mithril Team <mithril@iohk.io>
-    - Cardano Networking Team <>
-Implementors: []
+    - Jean-Philippe Raynaud <jp.raynaud@gmail.com>
+    - Arnaud Bailly <arnaud.bailly@iohk.io>
+    - Marcin Szamotulski <marcin.szamotulski@iohk.io>
+    - Armando Santos <armando.santos@iohk.io>
+    - Neil Davies <neil.davies@iohk.io>
+    - Sebastian Nagel <sebastian.nagel@ncoding.at>
+    - ?
+Implementors: 
+    - Cardano Scaling team <https://github.com/cardano-scaling>
 Discussions:
     - https://github.com/cardano-foundation/CIPs/pull/?
-Created: 2024-06-14
+Created: 2024-08-02
 License: Apache-2.0
 ---
 
 # Cardano Decentralized Message Queue
 
-## Questions
-
-
-> [!CAUTION]
-> Questions:
-> - How can we describe the topic based system (where the first topic is for Mithril, and later instantiations would be e.g. for Peras and Leios)?
-
 ## Abstract
 
-We propose to create a decentralized message diffusion protocol leveraging the Cardano network layer. This protocol allows to follow a topic based publish-subscribe pattern to diffuse messages from publisher nodes to subscriber nodes in a decentralized way.  
+We propose to create a decentralized message diffusion protocol leveraging the Cardano network layer. This protocol allows to follow a topic based diffusion of messages from publishers to subscribers in a decentralized way.  
 
 The messages can be sent and received by nodes running in a non intrusive way side by side to the Cardano node in order to enable inter-nodes communications.
 
@@ -41,10 +35,9 @@ Mithril is a protocol based on a [Stake-based Threshold Multi-signature scheme](
 
 The Mithril protocol coordinates the collection of individual signatures originating from the signers (run by SPOs) by the aggregators which combine them into Mithril multi-signatures and certificates. In order to be fully decentralized, the protocol needs to rely on a decentralized peer to peer network which, if built from the ground up, would require significant efforts and investment. Furthermore, the majority of SPO's, as the representatives of Cardano's active stake, will have to adopt and operate Mithril nodes alongside their Cardano node. Thus a natural solution is to use the Cardano network layer to significantly facilitate the development of Mithril protocol without a significant impact on the Cardano network or high maintenance efforts for the SPOs. 
 
-Other protocols in the Cardano ecosystem, such as Leios and Peras (and probably other protocols in the future), also need the capability to diffuse messages originating from block producers in a decentralized fashion. We have taken into consideration this need for a generic solution in the design proposed. However, at this stage, the impact on the performances have been established based on the needs for Mithril.
+Other protocols in the Cardano ecosystem, such as Leios and Peras (and probably other protocols in the future), also need the capability to diffuse messages originating from block producers in a decentralized fashion. However, in the Leios and Peras cases, the Cardano node itself is a producer and consumer of these messages. We have taken into consideration this need for a generic solution in the design proposed. 
 
 The proposed solution is described in detail below.
-
 
 # Specification
 
@@ -160,12 +153,9 @@ stateDiagram-v2
 
 ### Client and server implementation
 
-> [!WARNING]  
-> Do we need to handle a timeout mechanism based on message block number being below a specific depth from the tip of the chain?
-
 This mini-protocol is designed with two goals in mind:
 * diffuse messages with high efficiency
-* protect from asymmetric resource atatckes from the message consumer against the message provider
+* protect from asymmetric resource attacks from the message consumer against the message provider
 
 The mini-protocol is based on two pull-based operations:
 - the message consumer asks for message ids,
@@ -182,87 +172,6 @@ The protocol supports blocking and non-blocking requests:
 - the client must reply immediately to a non-blocking request.
 - the server must wait until the client has at least one message available.
 - if the current queue of the server is empty, it must use a blocking request and a non-blocking request otherwise.
-
-### Network load
-
-> [!CAUTION]
-> The computation must apply a multiplicative factor based on the number of peers connected and/or the overall redundancy of messages transmitted with the diffusion mechanism. The current value is **1**.
-
-#### Message diffusion multiplicative factor
-
-- TODO: model the traffic based on the number of connected peers?
-- TODO: evaluate the average times the same message is sent by a peer
-- TODO: get data from Transaction Submission mini-protocol
-- TBD
-
-#### Mithril extra network usage
-
-> [!CAUTION]
-> Some compression can be applied to the Mithril signatures which allows them to always be on the lower bound size, but it is not implemented yet.
-
-> [!NOTE]  
-> For a total of **3,100** Cardano SPOs on the `mainnet`, on an average **50%** of them will be eligible to send signatures (i.e. will win at least one lottery in the Mithril protocol). This means that if the full Cardano stake distribution is involved in the Mithril protocol, only **1550** signers will send signatures at each round. 
-
-The following tables gather figures about expected network load in the case of **Mithril** using the mini-protocol to diffuse the individual signatures: 
-
-| Message part | Lower bound | Upper bound |
-|--------|------|------|
-| messageId | 32 B | 32 B | 
-| messageBody | 360 B | 2,000 B |
-| blockNumber | 4 B | 4 B |
-| kesSignature | 448 B | 448 B |
-| operationalCertificate | 304 B | 304 Bytes |
-
-| Message | Lower bound | Upper bound |
-|--------|------|------|
-| total | 1,148 B | 2,788 B | 
-
-For a total of **3,100** Cardano SPOs, there will be **1,550** messages sent per round of signature: 
-
-- the network outbound throughput of a peer is:
-
-| Send period | Lower bound | Upper bound |
-| ----------- | ----------- | ----------- |
-| 1 min       | 29 kB/s     | 69 kB/s     |
-| 2 min       | 15 kB/s     | 35 kB/s     |
-| 5 min       | 6 kB/s      | 14 kB/s     |
-| 10 min      | 3 kB/s      | 7 kB/s      |
-
-- the network outbound volume of a peer is:
-
-| Send period | Lower bound | Upper bound  |
-| ----------- | ----------- | ------------ |
-| 1 min       | 74 GB/month | 178 GB/month |
-| 2 min       | 37 GB/month | 89 GB/month  |
-| 5 min       | 15 GB/month | 36 GB/month  |
-| 10 min      | 8 GB/month  | 18 GB/month  |
-
-### Infrastructure extra operating costs
-
-#### Networking traffic cost
-
-> [!NOTE]  
-> - These data apply to cloud provider which bill the traffic on the volume, not the bandwidth.
-> - Some clouds offer a free tier for the first **100GB** of traffic which is not taken into consideration here for simplicity.
-
-| Cloud Provider | Inbound Traffic | Outbound Traffic |
-|--------|------|------|
-| AWS | 0 $/GB | 0.09 $/GB |
-| GCP | 0 $/GB | 0.11 $/GB |
-| Azure | 0 $/GB | 0.09 $/GB |
-| Average | 0 $/GB | 0.1 $/GB |
-
-
-#### Mithril message diffusion extra networking cost
-
-For a total of `3,000` SPOs sending messages, the extra networking cost incurred for a Cardano full node is:
-
-| Send period | Lower bound | Upper bound |
-| ----------- | ----------- | ----------- |
-| 1 min       | 8 $/month   | 18 $/month  |
-| 2 min       | 4 $/month   | 9 $/month   |
-| 5 min       | 2 $/month   | 4 $/month   |
-| 10 min      | 1 $/month   | 2 $/month   |
 
 ### Protocol authentication
 
@@ -281,15 +190,16 @@ If any of these step fails, the message is considered as invalid, which is a pro
 > We also probably need to make sure that the KES key used to sign is from the latest rotation:
 > - either the last seen opcert number in the block headers of the chain.
 > - or the last seen opcert number from a previous message diffused.
+> - or the last opcert number recorded in the Mithril signer registration.
 > 
-> If the opcert number received is strictly lower than the previous one which has been seen, it > should be considered as a protocol violation.
+> If the opcert number received is strictly lower than the previous one which has been seen, it should be considered as a protocol violation.
 
 #### Cost of authentication
 
-> [!CAUTION]
-> Computations are based on a **1 ms** verification delay per message on a CPU core which needs to be properly evaluated.
+> [!NOTE]
+> Computations are based on the assumption of a **2 ms** KES signature verification time on a virtual CPU, which may vary depending on the infrastructure.
 
-For a total of **3,100** Cardano SPOs, there will be **1,550** messages sent per round of signature: 
+For a total of **3,100** Cardano SPOs on the `mainnet`, on an average **50%** of them will be eligible to send signatures (i.e. will win at least one lottery in the Mithril protocol). This means that if the full Cardano stake distribution is involved in the Mithril protocol, only **1,550** signers will send signatures at each round:
 
 - the number of messages received by a node which need to be verified is:
 
@@ -300,14 +210,85 @@ For a total of **3,100** Cardano SPOs, there will be **1,550** messages sent per
 | 5 min       | 13 M/month    |
 | 10 min      | 7 M/month     |
 
-- the extra CPU time for verification for a Cardano full node is:
+- the extra CPU time for the verification of messages based on the aforementioned volume of messages received is:
 
 | Send period | CPU core usage |
 | ----------- | -------------- |
-| 1 min       | 2%             |
-| 2 min       | 1.2%           |
-| 5 min       | 0.5%           |
-| 10 min      | 0.2%           |
+| 1 min       | 5%             |
+| 2 min       | 2.5%           |
+| 5 min       | 1.0%           |
+| 10 min      | 0.5%           |
+
+### Network load
+
+#### Mithril extra network usage
+
+> [!NOTE]
+> The below computations of the network throughput and volume apply a multiplicative factor of **2** to the number of messages transmitted to reflect the redundancy of the diffusion mechanism.
+
+> [!WARNING]
+> Some compression can be applied to the Mithril signatures which allows them to always be on the lower bound size, but it is not implemented yet.
+
+The following tables gather figures about expected network load in the case of **Mithril** using the mini-protocol to diffuse the individual signatures: 
+
+| Message part | Lower bound | Upper bound |
+|--------|------|------|
+| messageId | 32 B | 32 B | 
+| messageBody | 360 B | 2,000 B |
+| blockNumber | 4 B | 4 B |
+| kesSignature | 448 B | 448 B |
+| operationalCertificate | 304 B | 304 Bytes |
+
+| Message | Lower bound | Upper bound |
+|--------|------|------|
+| total | 1,148 B | 2,788 B | 
+
+For a total of **3,100** Cardano SPOs on the `mainnet`, on an average **50%** of them will be eligible to send signatures (i.e. will win at least one lottery in the Mithril protocol). This means that if the full Cardano stake distribution is involved in the Mithril protocol, only **1,550** signers will send signatures at each round:
+
+- the network outbound throughput of a peer is:
+
+| Send period | Lower bound | Upper bound |
+| ----------- | ----------- | ----------- |
+| 1 min       | 57 kB/s     | 138 kB/s    |
+| 2 min       | 29 kB/s     | 69 kB/s     |
+| 5 min       | 12 kB/s     | 28 kB/s     |
+| 10 min      | 6 kB/s      | 14 kB/s     |
+
+- the network outbound volume of a peer is:
+
+| Send period | Lower bound  | Upper bound  |
+| ----------- | ------------ | ------------ |
+| 1 min       | 147 GB/month | 356 GB/month |
+| 2 min       | 74 GB/month  | 178 GB/month |
+| 5 min       | 30 GB/month  | 72 GB/month  |
+| 10 min      | 15 GB/month  | 36 GB/month  |
+
+### Infrastructure extra operating costs
+
+#### Networking traffic cost
+
+> [!NOTE]  
+> - These data apply to cloud providers which bill the traffic on the volume, not the bandwidth.
+> - Some cloud providers offer a free tier for the first **100GB** of traffic which is not taken into consideration here for simplicity.
+
+| Cloud Provider | Inbound Traffic | Outbound Traffic |
+|--------|------|------|
+| AWS | 0 $/GB | 0.09 $/GB |
+| GCP | 0 $/GB | 0.11 $/GB |
+| Azure | 0 $/GB | 0.09 $/GB |
+| Average | 0 $/GB | 0.1 $/GB |
+
+
+#### Mithril message diffusion extra networking cost
+
+For a total of `3,000` SPOs sending messages, the extra networking cost incurred for a Cardano full node is:
+
+| Send period | Lower bound | Upper bound |
+| ----------- | ----------- | ----------- |
+| 1 min       | 15 $/month  | 36 $/month  |
+| 2 min       | 8 $/month   | 18 $/month  |
+| 5 min       | 3 $/month   | 8 $/month   |
+| 10 min      | 2 $/month   | 4 $/month   |
 
 ### Possible attacks
 
@@ -323,9 +304,9 @@ In the specific case of Mithril, the individual signature is unique so there wil
 - the message embeds a valid signature and it will be accepted by the receiving Mithril aggregator.
 - the message embeds an invalid signature and it will be rejected by the receiving Mithril aggregator.
 
-#### Message flooding
+#### DoS attack
 
-In this attack, a malicous SPO would try to flood the network by sending many messages at once. In that case, the network layer could detect that the throughput of messages originating from a SPO is above a threshold and consider it as a protocol violation, thus disconnecting the malicous peer.
+In this attack, a malicous SPO would try to flood the network by sending many messages at once. In that case, the network layer could detect that the throughput of messages originating from a SPO is above a threshold and consider it as a protocol violation, thus disconnecting the malicous peer. If a peer asks for N messages and receives more than N messages, then it would also be considered as a protocol violation. Also, the way mini-protocols are implemented allows to set a maximum message size.
 
 ## Local Message Submission mini-protocol
 
@@ -436,20 +417,12 @@ stateDiagram-v2
 
 * Mithril requires strong network foundations to support interactions between its various nodes:
 
-  * Mithril needs to exist in a decentralized context where multiple aggregators can operate seamlessly and independantly.
+  * Mithril needs to exist in a decentralized context where multiple aggregators can operate seamlessly and independently.
   * Mithril needs participation of all or nearly all of the Cardano network SPOs to provide maximal security to the multi-signatures embedded in the certificates.
-  * Creating a separate network would entail significant costs and efforts (there are more than 3,000 SPOs which would need to be connected with resilient and secure network, and much more passive nodes).
+  * Creating a separate network would entail significant costs and efforts (there are more than 3,000 SPOs which would need to be connected with resilient and secure network, and much more passive nodes). 
+  * Cardano SPOs need to be vigilant about what other applications run on their block producers and relay nodes. While a separate p2p network could be created, incoming connections must be treated carefully and all the same DoS considerations as with Cardano would need to apply. By standardizing the message diffusion of Mithril in the same way as the Cardano protocol stack, the additional risk of operating Mithril is greatly reduced.
   * The Cardano network is very efficient for diffusion (e.g. broadcasting) which is precisely what is needed for Mithril.
   * Mithril signer node needs to run on the same machine as the Cardano block producing node (to access the KES keys). It makes sense to use the same network layer, which will also facilitate a high level of participation.
-  * TBD
-
-### For Leios
-
-TBD
-
-### For Peras
-
-TBD
 
 ### For Cardano
 
@@ -457,7 +430,6 @@ TBD
 
   * This is a required feature to make the Cardano ecosystem scalable.
   * The design is versatile enough to support present and future use cases.
-  * TBD
 
 # Information Diffusion Architecture
 
@@ -536,10 +508,11 @@ the KES key.
 
 ## Implementation Plan
 
-> [!IMPORTANT]  
-> A hard-fork of the Cardano chain may be required.
+> [!WARNING]  
+> A hard-fork of the Cardano chain may be required if some information, like peer ports for an overlay network, are to be registered by the SPOs on-chain.
 
 * Write a "formal" specification of the protocols along with vectors/conformance checker for protocol's structure and state machine logic.
+* Write an architecture document extending this CIP with more technical details about the implementation.
 * Validate protocol behaviour with all relevant parties (Network and Node teams).
 * Validate performance profile and impact on Cardano network.
 * Implement the Cardano n2n and n2c mini-protocols in the Cardano node.
@@ -561,14 +534,6 @@ Networking for Cardano Shelley**: https://ouroboros-network.cardano.intersectmbo
 * **Fast Bootstrap a Cardano node**: https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node
 * **Run a Mithril Signer node (SPO)**: https://mithril.network/doc/manual/getting-started/run-signer-node/
 * **Mithril Threat Model**: https://mithril.network/doc/mithril/threat-model
-
-### Leios
-
-TBD
-
-### Peras
-
-TBD
 
 # Copyright
 
